@@ -67,8 +67,8 @@ module subprogs
 
         itr_max = 10000
         er = 0.0d0
-        er0 = 10e-8
-        omg = 1.0d0
+        er0 = 10e-3
+        omg = 1.7d0
         !RHS(i, j) = 0.0d0
         RHS_sum = 0.0d0
 
@@ -76,12 +76,13 @@ module subprogs
         ! 右辺を計算
         do j = 2, Ny-1
             do i = 2, Nx-1
-                RHS(i, j) = - 2.0d0 * (x(1, i, j) * (Lx - x(1, i, j)) + x(2, i, j) * (Ly - x(2, i, j))) ! 解φが簡単な形で表現され、ディリクレ境界条件はすべて0でok
+                !RHS(i, j) = - 2.0d0 * (x(1, i, j) * (Lx - x(1, i, j)) + x(2, i, j) * (Ly - x(2, i, j))) ! 解φが簡単な形で表現され、ディリクレ境界条件はすべて0でok
+                RHS(i, j) = - 2.0d0 *(acos(-1.0d0) / Lx)**2 * sin(acos(-1.0d0)*x(1, i, j) / Lx) * sin(acos(-1.0d0)*x(2, i, j) / Ly)
                 RHS_sum = RHS_sum + RHS(i, j) ** 2
             enddo
         enddo
         RHS_norm = sqrt(RHS_sum / real((Nx-1)*(Ny-1), kind = 8))
-        write(*,*) RHS_norm
+        !write(*,*) RHS_norm
 
         do itr = 1, itr_max
             er = 0.0d0 ! 誤差をリセット
@@ -89,7 +90,7 @@ module subprogs
             do j = 2, Ny-1
                 do i = 2, Nx-1
 
-                    RHS = - 2.0d0 * (x(1, i, j) * (Lx - x(1, i, j)) + x(2, i, j) * (Ly - x(2, i, j))) ! 解φが簡単な形で表現され、ディリクレ境界条件はすべて0でok
+                    !RHS = - 2.0d0 * (x(1, i, j) * (Lx - x(1, i, j)) + x(2, i, j) * (Ly - x(2, i, j))) ! 解φが簡単な形で表現され、ディリクレ境界条件はすべて0でok
                     !RHS = ((u_pre(i+1,j)-u_pre(i-1,j))/(2*dx)) / dt →いったん簡単な右辺を考える(20251002)
                     !RHS_sum = RHS_sum + RHS(i, j) ** 2
                     !phi_pre = phi(i, j) ! 更新前のphiの値を格納
@@ -128,7 +129,7 @@ program main
     real(8), allocatable :: phi(:, :), phi_exact(:, :), phi_num(:, :)
     integer :: exp, Nx, Ny, N, i, j, k
 
-    open(50, file = '/home/shishida/SMAC/.d/try.d') ! 出力ファイルを開く
+    open(50, file = '/home/shishida/SMAC/.d/err.d') ! 出力ファイルを開く
 
 
     do exp = 3, 7 ! Nx, Ny = 8 ~ 128
@@ -160,39 +161,16 @@ program main
         phi(:, :) = 0.0d0
         phi(:, :) = 0.0d0
 
-        ! do i = 1, Nx
-        !     phi(i, 1) = sin((4.0d0*acos(-1.0d0))/Lx * x(1, i, j))
-        !     phi(i, Ny) = sin((4.0d0*acos(-1.0d0))/Lx * x(1, i, j))
-        ! enddo
-
         ! 格子生成
         do j = 1, Ny
             do i = 1, Nx
                 x(1, i, j) = (i-1) * dx
                 x(2, i, j) = (j-1) * dy
-                ! phi(i, j) = sin(acos(-1.0d0) * x(1, i, j))
             enddo
         enddo
 
 
-        ! 微分が２次精度であるかチェック
-        ! k = 0
-        ! do j = 2, Ny-1
-        !     do i = 2, Nx-1
-        !         phi_num(i, j) = (phi(i-1, j) - 2.0d0 * phi(i, j) + phi(i+1, j)) / dx ** 2 ! -sinxになるはず
-        !         phi_exact(i, j) = -acos(-1.0d0)**2 * sin(acos(-1.0d0) * x(1, i, j))
-        !         diff = (phi_num(i, j) - phi_exact(i, j)) ** 2
-        !         error = error + diff
-        !         !write(*, *) phi(i, j), phi_num(i, j), phi_exact(i, j)
-        !     enddo
-        ! enddo
         error = sqrt(error / real(Nx * Ny, kind=8))
-        ! write(*, '(I8, 1X, E15.8)')Nx-1, error
-
-
-
-        
-
 
 
         ! 圧力ポアソン方程式　定数項
@@ -209,24 +187,13 @@ program main
         error = 0.0d0
         do j = 1, Ny
             do i = 1, Nx
-                phi_exact(i, j) = x(1, i, j) * (Lx - x(1, i, j)) * x(2, i, j) * (Ly - x(2, i, j))
-                !phi_exact(i, j) = -1.0d0 / (2.0d0*(4.0d0 * acos(-1.0d0)/Lx)**2) * sin((4.0d0*acos(-1.0d0))/Lx * x(1, i, j)) * cos((4.0d0*acos(-1.0d0))/Lx * x(2, i, j))
+                phi_exact(i, j) = sin(acos(-1.0d0)*x(1, i, j) / Lx) * sin(acos(-1.0d0)*x(2, i, j) / Ly)
                 diff = phi(i, j) - phi_exact(i, j)
                 error = error + diff ** 2
-                !write(*, *) i, j, diff, diff**2
             enddo
         enddo
         error = sqrt(error / real(N, kind = 8))
-
-
-
         write(50, '(I8, 1X, E15.8)') Nx-1, error
-        ! do j = 1, Ny
-        !     do i = 1, Nx
-        !         write(50, '(3e12.4)') x(2, 51, j), phi(51, j) ! (x座標)、(y座標)、(ポテンシャル) の順で表示
-        !     enddo
-        !     write(50, *) ''
-        ! enddo
     enddo
 
     close(50)
